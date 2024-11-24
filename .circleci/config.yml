@@ -54,7 +54,7 @@ jobs:
           path: Reports
       - store_test_results:
           path: Reports
-      - slack_notify
+
 workflows:
   build:
     jobs:
