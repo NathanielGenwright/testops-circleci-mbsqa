@@ -19,6 +19,7 @@ parameters:
 
 orbs:
   slack: circleci/slack@4.12.6
+  node: circleci/node@4.1.0
 
 slack_notify: &slack_notify
   slack/notify:
@@ -50,13 +51,108 @@ jobs:
  #          katalonc.sh -apiKey="$KATALON_API_KEY" -browserType="Chrome" \
  #             -retry=0 -statusDelay=15 -testSuitePath="Test Suites/UI" \
 #            -projectPath="./" --config -webui.autoUpdateDrivers=true
+  test:
+    executor:
+      name: node/default
+      tag: '10.15.3'
+    working_directory: /root/project
+    steps:
+      - checkout
+      - run: |
+          set -ex
+          npm install
+          npm test
+      - persist_to_workspace:
+          root: /root/project
+          paths:
+            - report/*
+
       - store_artifacts:
           path: Reports
       - store_test_results:
           path: Reports
 
+  upload-report:
+    docker:
+      - image: katalonstudio/report-uploader:0.0.8
+    environment:
+      PROJECT_ID: 1611971
+      TYPE: junit
+      REPORT_PATH: Reports
+    steps:
+      - attach_workspace:
+          at: /katalon
+      - run: uploader.sh
+
 workflows:
+  version: 2.1
   build:
     jobs:
       - katalon-studio-run:
           context: org-global
+  upload-report:
+    jobs:
+      - test
+      - upload-report:
+          requires:
+            - test
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#           ---------------------------
+
+#           version: 2.1
+
+# orbs:
+#   node: circleci/node@4.1.0
+
+# jobs:
+
+#   test:
+#     executor:
+#       name: node/default
+#       tag: '10.15.3'
+#     working_directory: /root/project
+#     steps:
+#       - checkout
+#       - run: |
+#           set -ex
+#           npm install
+#           npm test
+#       - persist_to_workspace:
+#           root: /root/project
+#           paths:
+#             - report/*
+
+#   upload-report:
+#     docker:
+#       - image: katalonstudio/report-uploader:0.0.8
+#     environment:
+#       PROJECT_ID: 1611971
+#       TYPE: junit
+#       REPORT_PATH: Reports
+#     steps:
+#       - attach_workspace:
+#           at: /katalon
+#       - run: uploader.sh
+
+# workflows:
+#   version: 2.1
+#   upload-report:
+#     jobs:
+#       - test
+#       - upload-report:
+#           requires:
+#             - test
