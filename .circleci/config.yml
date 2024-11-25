@@ -44,7 +44,7 @@ jobs:
           command: |
             katalonc.sh -apiKey="$KATALON_API_KEY" -browserType="Chrome" \
               -retry=0 -statusDelay=15 -testSuitePath="Test Suites/Regression" \
-             -projectPath= "/project" --config -webui.autoUpdateDrivers=true
+             -projectPath= "/" --config -webui.autoUpdateDrivers=true
  #     - run:    
  #         name: UI Tests
  #         command: |
@@ -74,7 +74,7 @@ jobs:
 
   upload-report:
     docker:
-      - image: katalonstudio/report-uploader:0.0.8
+    #  - image: katalonstudio/report-uploader:0.0.8
     environment:
       PROJECT_ID: 1611971
       TYPE: junit
