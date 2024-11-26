@@ -19,8 +19,8 @@ parameters:
 
 orbs:
   slack: circleci/slack@4.12.6
-  katalon-studio: katalon/katalon-studio@23.0.12
-  
+  # katalon-studio: katalon/katalon-studio@23.0.12
+
 slack_notify: &slack_notify
   slack/notify:
     event: fail
@@ -93,4 +93,4 @@ workflows:
           context: org-global
       - upload-results:
           requires:
-            - katalonstudio
+            - katalon-studio-run
