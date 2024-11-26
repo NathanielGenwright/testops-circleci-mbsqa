@@ -19,12 +19,13 @@ parameters:
 
 orbs:
   slack: circleci/slack@4.12.6
-  node: circleci/node@4.1.0
-
+  katalon-studio: katalon/katalon-studio@23.0.12
+  
 slack_notify: &slack_notify
   slack/notify:
     event: fail
     template: basic_fail_1
+
 setup_slack_mentions: &setup_slack_mentions
   run:
     name: setup $SLACK_PARAM_MENTIONS
@@ -34,8 +35,7 @@ setup_slack_mentions: &setup_slack_mentions
 jobs:
   katalon-studio-run:
     docker:
-      - image: katalonstudio/katalon:9-latest 
-    
+      - image: katalonstudio/katalon:<< pipeline.parameters.kre-image-tag >>
     steps:
       - *setup_slack_mentions
       - checkout
@@ -44,115 +44,53 @@ jobs:
           command: |
             katalonc.sh -apiKey="$KATALON_API_KEY" -browserType="Chrome" \
               -retry=0 -statusDelay=15 -testSuitePath="Test Suites/Regression" \
-             -projectPath= "/" --config -webui.autoUpdateDrivers=true
- #     - run:    
- #         name: UI Tests
- #         command: |
- #          katalonc.sh -apiKey="$KATALON_API_KEY" -browserType="Chrome" \
- #             -retry=0 -statusDelay=15 -testSuitePath="Test Suites/UI" \
-#            -projectPath="./" --config -webui.autoUpdateDrivers=true
-  test:
-    executor:
-      name: node/default
-      tag: '10.15.3'
-    working_directory: /root/project
-    steps:
-      - checkout
-      - run: |
-          set -ex
-          npm install
-          npm test
-      - persist_to_workspace:
-          root: /root/project
-          paths:
-            - report/*
-
+              -projectPath="./" --config -webui.autoUpdateDrivers=true \
+              -testOps.projectId="$TESTOPS_PROJECT_ID" \
+              -testOps.serverUrl="$TESTOPS_SERVER_URL"
       - store_artifacts:
           path: Reports
+          destination: katalon-reports
       - store_test_results:
           path: Reports
+      - *slack_notify
 
-  upload-report:
+  upload-results:
     docker:
-    #  - image: katalonstudio/report-uploader:0.0.8
-    environment:
-      PROJECT_ID: 1611971
-      TYPE: junit
-      REPORT_PATH: Reports
+      - image: katalonstudio/katalon:<< pipeline.parameters.kre-image-tag >>
     steps:
+      - checkout
       - attach_workspace:
-          at: /katalon
-      - run: uploader.sh
+          at: .
+      - run:
+          name: Upload Results to TestOps
+          command: |
+            katalonc.sh -apiKey="$KATALON_API_KEY" \
+              -projectPath="./" \
+              -executionProfilesDirectory="Profiles" \
+              -reportFolder="Reports" \
+              -reportFileName="report" \
+              -testOpsProjectId="$TESTOPS_PROJECT_ID" \
+              -testOpsServerUrl="$TESTOPS_SERVER_URL"
+      - run:
+          name: Upload Results to GitHub
+          command: |
+            apt-get update && apt-get install -y git
+            git config user.email "circleci@example.com"
+            git config user.name "CircleCI"
+            git checkout -b test-results-${CIRCLE_BUILD_NUM}
+            cp -R Reports/* .
+            git add .
+            git commit -m "Add test results for build ${CIRCLE_BUILD_NUM}"
+            git push https://${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git test-results-${CIRCLE_BUILD_NUM}
+            curl -u ${GITHUB_TOKEN}: -X POST -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pulls \
+              -d '{"title":"Test Results for Build '"${CIRCLE_BUILD_NUM}"'","head":"test-results-'"${CIRCLE_BUILD_NUM}"'","base":"main"}'
 
 workflows:
-  version: 2.1
   build:
     jobs:
       - katalon-studio-run:
           context: org-global
-  upload-report:
-    jobs:
-      - test
-      - upload-report:
+      - upload-results:
           requires:
-            - test
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#           ---------------------------
-
-#           version: 2.1
-
-# orbs:
-#   node: circleci/node@4.1.0
-
-# jobs:
-
-#   test:
-#     executor:
-#       name: node/default
-#       tag: '10.15.3'
-#     working_directory: /root/project
-#     steps:
-#       - checkout
-#       - run: |
-#           set -ex
-#           npm install
-#           npm test
-#       - persist_to_workspace:
-#           root: /root/project
-#           paths:
-#             - report/*
-
-#   upload-report:
-#     docker:
-#       - image: katalonstudio/report-uploader:0.0.8
-#     environment:
-#       PROJECT_ID: 1611971
-#       TYPE: junit
-#       REPORT_PATH: Reports
-#     steps:
-#       - attach_workspace:
-#           at: /katalon
-#       - run: uploader.sh
-
-# workflows:
-#   version: 2.1
-#   upload-report:
-#     jobs:
-#       - test
-#       - upload-report:
-#           requires:
-#             - test
+            - katalonstudio
