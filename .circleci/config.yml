@@ -78,7 +78,7 @@ jobs:
             git config user.email "circleci@example.com"
             git config user.name "CircleCI"
             git checkout -b test-results-${CIRCLE_BUILD_NUM}
-            cp -R Reports/* .
+            cp -R Reports2/* .
             git add .
             git commit -m "Add test results for build ${CIRCLE_BUILD_NUM}"
             git push https://${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git test-results-${CIRCLE_BUILD_NUM}
